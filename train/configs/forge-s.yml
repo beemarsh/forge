@@ -3,6 +3,8 @@
    "data-path": "data/tokens/all_text_document",
    "vocab-file": "data/tokens/all_vocab.json",
 
+   "tensorboard-dir": "tensorboard"
+
    # parallelism settings ( you will want to change these based on your cluster setup, ideally scheduling pipeline stages
    "tokenizer_type": "HFTokenizer",
    # across the node boundaries )
@@ -49,9 +51,9 @@
     "reduce_scatter": True,
     "reduce_bucket_size": 500000000,
     "contiguous_gradients": True,
-    #"zero_allow_untested_optimizer": True,
   },
 
+   "zero_allow_untested_optimizer": True,
 
 
    # data settings
@@ -73,7 +75,7 @@
    # precision settings
    "fp16": {
      #"fp16": true,
-     "type": "bfloat16",
+     #"type": "bfloat16",
      "enabled": true,
      "loss_scale": 0,
      "loss_scale_window": 1000,
@@ -83,8 +85,8 @@
 
 
    # misc. training settings
-   "train-iters": 15300,
-   "lr-decay-iters": 15300,
+   "train-iters": 100,
+   "lr-decay-iters": 100,
    "distributed-backend": "nccl",
    "lr-decay-style": "cosine",
    "warmup": 0.01,
@@ -93,7 +95,7 @@
    "eval-iters": 10,
 
    # logging
-   "log-interval": 20,
+   "log-interval": 10,
    "steps_per_print": 10,
    "keep-last-n-checkpoints": 200,
    "wall_clock_breakdown": true,

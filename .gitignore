@@ -1,0 +1,13 @@
+gpt-neox
+aws-ofi-rccl
+train/build
+train/deepspeed
+train/data
+train/dist
+train/fused_kernels*
+train/hostfiles
+train/logs
+train/tensorboard
+.deepspeed_env
+neox.*
+__pycache__/
