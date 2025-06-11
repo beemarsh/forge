@@ -58,10 +58,10 @@
    "split": "969,30,1",
 
    # activation checkpointing
-   #"checkpoint-activations": true,
-   #"checkpoint-num-layers": 1,
-   #"partition-activations": true,
-   #"synchronize-each-layer": true,
+   "checkpoint-activations": true,
+   "checkpoint-num-layers": 1,
+   "partition-activations": true,
+   "synchronize-each-layer": true,
 
    # regularization
    "gradient_clipping": 1.0,
