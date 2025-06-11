@@ -1,14 +1,14 @@
 #!/bin/bash -l
 #SBATCH -J gpt
-#SBATCH -t 0:10:00
-#SBATCH -N 4
+#SBATCH -t 0:30:00
+#SBATCH -N 8
 #SBATCH -C nvme
 #SBATCH --exclusive
 #SBATCH --ntasks-per-node=8
 #SBATCH -o neox.o%j
 #SBATCH -e neox.e%j
-#SBATCH -q DEBUG
 #SBATCH -A gen243
+#SBATCH -q DEBUG
 
 MODEL=forge-s
 rocm_version=5.3.0

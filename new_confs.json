@@ -1,0 +1,11 @@
+{
+  pipe_parallel_size: "not 1",
+  model_parallel_size : "not 1",
+  fp16: "Check what the hardware wants",
+  train_micro_batch_size_per_gpu: "",
+  train_iters: "Low",
+  checkpoint_factor: "Disable checkpointing",
+  eval_interval : "Need to disable",
+  eval_iters : "Same need to disable evaluation during benchmarking",
+  log_interval: "Need to experiment with it",
+}
