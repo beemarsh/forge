@@ -1,4 +1,4 @@
-/forge_env
+/conda-env-forge
 /gpt-neox
 /aws-ofi-rccl
 /build
@@ -13,3 +13,5 @@
 /neox.*
 __pycache__/
 /test_harness
+/checkpoints
+/test_data

@@ -1,0 +1,146 @@
+{ProcessCoord(pipe=0, data=0, model=0): 0, ProcessCoord(pipe=0, data=1, model=0): 1, ProcessCoord(pipe=0, data=2, model=0): 2, ProcessCoord(pipe=0, data=3, model=0): 3, ProcessCoord(pipe=0, data=4, model=0): 4, ProcessCoord(pipe=0, data=5, model=0): 5, ProcessCoord(pipe=0, data=6, model=0): 6, ProcessCoord(pipe=0, data=7, model=0): 7, ProcessCoord(pipe=0, data=8, model=0): 8, ProcessCoord(pipe=0, data=9, model=0): 9, ProcessCoord(pipe=0, data=10, model=0): 10, ProcessCoord(pipe=0, data=11, model=0): 11, ProcessCoord(pipe=0, data=12, model=0): 12, ProcessCoord(pipe=0, data=13, model=0): 13, ProcessCoord(pipe=0, data=14, model=0): 14, ProcessCoord(pipe=0, data=15, model=0): 15}
+Time to load fused_lamb op: 39.180800437927246 seconds
+Time to load utils op: 18.13701844215393 seconds
+Rank: 4 partition count [16, 16] and sizes[(90122496, False), (40506, False)] 
+Time to load utils op: 0.0026569366455078125 seconds
+WARNING: shuffle index length (125509964) is not equal to sample index length (125509965)
+WARNING: shuffle index length (601642) is not equal to sample index length (601643)
+WARNING: shuffle index length (19315) is not equal to sample index length (19316)
+model.save_ckpt!!
+save_ds_ckpt done!!
+
+]
+MPU PP: [14]
+MPU PP: [15]
+MPU MP: [0]
+MPU MP: [1]
+MPU MP: [2]
+MPU MP: [3]
+MPU MP: [4]
+MPU MP: [5]
+MPU MP: [6]
+MPU MP: [7]
+MPU MP: [8]
+MPU MP: [9]
+MPU MP: [10]
+MPU MP: [11]
+MPU MP: [12]
+MPU MP: [13]
+MPU MP: [14]
+MPU MP: [15]
+> setting random seeds to 1234 ...
+building GPT2 model ...
+SEED_LAYERS=False BASE_SEED=1234 SEED_FN=None
+Using topology: {ProcessCoord(pipe=0, data=0, model=0): 0, ProcessCoord(pipe=0, data=1, model=0): 1, ProcessCoord(pipe=0, data=2, model=0): 2, ProcessCoord(pipe=0, data=3, model=0): 3, ProcessCoord(pipe=0, data=4, model=0): 4, ProcessCoord(pipe=0, data=5, model=0): 5, ProcessCoord(pipe=0, data=6, model=0): 6, ProcessCoord(pipe=0, data=7, model=0): 7, ProcessCoord(pipe=0, data=8, model=0): 8, ProcessCoord(pipe=0, data=9, model=0): 9, ProcessCoord(pipe=0, data=10, model=0): 10, ProcessCoord(pipe=0, data=11, model=0): 11, ProcessCoord(pipe=0, data=12, model=0): 12, ProcessCoord(pipe=0, data=13, model=0): 13, ProcessCoord(pipe=0, data=14, model=0): 14, ProcessCoord(pipe=0, data=15, model=0): 15}
+stage=0 layers=29
+     0: EmbeddingPipe
+     1: _pre_transformer_block
+     2: ParallelTransformerLayerPipe
+     3: ParallelTransformerLayerPipe
+     4: ParallelTransformerLayerPipe
+     5: ParallelTransformerLayerPipe
+     6: ParallelTransformerLayerPipe
+     7: ParallelTransformerLayerPipe
+     8: ParallelTransformerLayerPipe
+     9: ParallelTransformerLayerPipe
+    10: ParallelTransformerLayerPipe
+    11: ParallelTransformerLayerPipe
+    12: ParallelTransformerLayerPipe
+    13: ParallelTransformerLayerPipe
+    14: ParallelTransformerLayerPipe
+    15: ParallelTransformerLayerPipe
+    16: ParallelTransformerLayerPipe
+    17: ParallelTransformerLayerPipe
+    18: ParallelTransformerLayerPipe
+    19: ParallelTransformerLayerPipe
+    20: ParallelTransformerLayerPipe
+    21: ParallelTransformerLayerPipe
+    22: ParallelTransformerLayerPipe
+    23: ParallelTransformerLayerPipe
+    24: ParallelTransformerLayerPipe
+    25: ParallelTransformerLayerPipe
+    26: _post_transformer_block
+    27: NormPipe
+    28: ParallelLinearPipe
+  loss: partial
+Configuring Optimizer type: LAMB with params: {'lr': 0.008, 'betas': [0.9, 0.999], 'eps': 1e-08}
+Time to load fused_lamb op: 39.49897527694702 seconds
+> learning rate decay style: cosine
+DeepSpeed is enabled.
+Time to load utils op: 18.039215326309204 seconds
+Rank: 0 partition count [16, 16] and sizes[(90122496, False), (40506, False)] 
+Time to load utils op: 0.00034165382385253906 seconds
+ > number of parameters on model parallel rank 0: 1442608032
+ > total params: 1,442,608,032
+Unable to load checkpoint.
+Loading checkpoint and starting from iteration 0
+> building train, validation, and test datasets ...
+    reading sizes...
+    reading pointers...
+    reading document index...
+    creating numpy buffer of mmap...
+    creating memory view of numpy buffer...
+ > dataset split:
+    train:
+     document indices in [0, 205112060) total of 205112060 documents
+    validation:
+     document indices in [205112060, 211462279) total of 6350219 documents
+    test:
+     document indices in [211462279, 211673953) total of 211674 documents
+number of tokens 257044408323
+ > WARNING: could not find index map files, building the indices on rank 0 ...
+ > elasped time to build and save doc-idx mapping (seconds): 14.952637
+ > elapsed time to build and save sample-idx mapping (seconds): 3.262324
+ > elapsed time to build and save shuffle-idx mapping (seconds): 7.173547
+ > loading doc-idx mapping from data/tokens/all_text_document_train_indexmap_5120ns_2048sl_1234s_doc_idx.npy
+ > loading sample-idx mapping from data/tokens/all_text_document_train_indexmap_5120ns_2048sl_1234s_sample_idx.npy
+ > loading shuffle-idx mapping from data/tokens/all_text_document_train_indexmap_5120ns_2048sl_1234s_shuffle_idx.npy
+    loaded indexed file in 0.068 seconds
+    total number of samples: 125509966
+    total number of epochs: 1
+WARNING: shuffle index length (125509964) is not equal to sample index length (125509965)
+number of tokens 1232165846
+ > WARNING: could not find index map files, building the indices on rank 0 ...
+ > elasped time to build and save doc-idx mapping (seconds): 0.293508
+ > elapsed time to build and save sample-idx mapping (seconds): 0.041572
+ > elapsed time to build and save shuffle-idx mapping (seconds): 0.015337
+ > loading doc-idx mapping from data/tokens/all_text_document_valid_indexmap_2560ns_2048sl_1234s_doc_idx.npy
+ > loading sample-idx mapping from data/tokens/all_text_document_valid_indexmap_2560ns_2048sl_1234s_sample_idx.npy
+ > loading shuffle-idx mapping from data/tokens/all_text_document_valid_indexmap_2560ns_2048sl_1234s_shuffle_idx.npy
+    loaded indexed file in 0.006 seconds
+    total number of samples: 601644
+    total number of epochs: 1
+WARNING: shuffle index length (601642) is not equal to sample index length (601643)
+number of tokens 39560160
+ > WARNING: could not find index map files, building the indices on rank 0 ...
+ > elasped time to build and save doc-idx mapping (seconds): 0.007211
+ > elapsed time to build and save sample-idx mapping (seconds): 0.001884
+ > elapsed time to build and save shuffle-idx mapping (seconds): 0.001712
+ > loading doc-idx mapping from data/tokens/all_text_document_test_indexmap_2560ns_2048sl_1234s_doc_idx.npy
+ > loading sample-idx mapping from data/tokens/all_text_document_test_indexmap_2560ns_2048sl_1234s_sample_idx.npy
+ > loading shuffle-idx mapping from data/tokens/all_text_document_test_indexmap_2560ns_2048sl_1234s_shuffle_idx.npy
+    loaded indexed file in 0.003 seconds
+    total number of samples: 19317
+    total number of epochs: 1
+WARNING: shuffle index length (19315) is not equal to sample index length (19316)
+setting training data start iteration to 0
+setting validation data start iteration to 0
+done with setups ...
+time (ms) | model and optimizer: 86343.91 | train/valid/test data iterators: 44858.10
+training ...
+steps: 10 loss: 9.9187 iter time (s): 11.751 samples/sec: 21.785
+ samples/sec: 21.781 | iteration       10/      20 | elapsed time per iteration (ms): 11753.1 | learning rate: 5.927E-03 | approx flops per GPU: 41.1TFLOPS | lm_loss: 1.141383E+01 | loss scale: 16384.0 | number of skipped iterations:   3 | number of nan iterations:   0 |
+after 10 iterations memory (MB) | allocated: 7266.65380859375 | max allocated: 20396.1552734375 | reserved: 27300.0 | max reserved: 27300.0
+time (ms)
+steps: 20 loss: 8.5572 iter time (s): 9.715 samples/sec: 26.350
+ samples/sec: 26.344 | iteration       20/      20 | elapsed time per iteration (ms): 9717.6 | learning rate: 4.948E-04 | approx flops per GPU: 49.7TFLOPS | lm_loss: 8.900832E+00 | loss scale: 16384.0 | number of skipped iterations:   0 | number of nan iterations:   0 |
+time (ms)
+---------------------------------------------------------------------------------------------------------------------------
+ validation results at the end of training for val data | lm_loss value: 8.693707E+00 | lm_loss_ppl value: 5.965252E+03 | 
+---------------------------------------------------------------------------------------------------------------------------
+model.save_ckpt!!
+save_ds_ckpt done!!
+Evaluating iter 10/10
+----------------------------------------------------------------------------------------------------------------------
+ test results at the end of training for test data | lm_loss value: 8.843516E+00 | lm_loss_ppl value: 6.929316E+03 | 
+----------------------------------------------------------------------------------------------------------------------
