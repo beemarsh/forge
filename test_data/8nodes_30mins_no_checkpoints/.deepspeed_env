@@ -1,8 +1,0 @@
-PATH=/lustre/orion/gen243/proj-shared/bbdir/forge/conda-env-forge/bin:/autofs/nccs-svm1_sw/frontier/miniforge3/23.11.0-0/condabin:/sw/frontier/lfs-wrapper/0.0.1/bin/lfs:/sw/frontier/miniforge3/23.11.0-0/bin:/opt/rocm-5.3.0/bin:/opt/cray/libfabric/1.20.1/bin:/opt/cray/pe/mpich/8.1.27/ofi/gnu/9.1/bin:/opt/cray/pe/mpich/8.1.27/bin:/opt/cray/pe/gcc/10.3.0/bin:/opt/cray/pe/craype/2.7.33/bin:/ccs/home/iambee/.nvm/versions/node/v22.16.0/bin:/sw/sources/hpss/bin:/sw/frontier/spack-envs/core-25.03/opt/gcc-13.2/tmux-3.4-fcqqko3j4ga67yuc7zxaqcwsix5hns2v/bin:/opt/cray/pe/perftools/24.11.0/bin:/opt/cray/pe/papi/7.1.0.4/bin:/opt/clmgr/sbin:/opt/clmgr/bin:/opt/sgi/sbin:/opt/sgi/bin:/sw/frontier/bin:/ccs/home/iambee/.local/bin:/usr/local/bin:/usr/bin:/bin:/opt/bin:/opt/c3/bin:/usr/lib/mit/bin:/opt/puppetlabs/bin:/ccs/home/iambee/.packages/bin:/opt/cray/pe/bin
-LD_LIBRARY_PATH=/lustre/orion/gen243/proj-shared/bbdir/forge/aws-ofi-rccl/lib:/opt/rocm-/hip/lib:/opt/rocm-5.3.0/lib/roctracer:/opt/rocm-5.3.0/lib/rocprofiler:/opt/rocm-5.3.0/lib:/opt/cray/libfabric/1.20.1/lib64:/opt/cray/pe/gcc/10.3.0/snos/lib64:/opt/cray/pe/papi/7.1.0.4/lib64
-CPATH=
-CUDAPATH=/opt/rocm-5.3.0
-TORCH_EXTENSIONS_DIR=/lustre/orion/gen243/proj-shared/bbdir/forge/deepspeed
-NCCL_DEBUG=INFO
-FI_CXI_ATS=0
-NCCL_SOCKET_IFNAME=hsn
