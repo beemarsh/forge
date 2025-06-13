@@ -8,12 +8,12 @@
 #SBATCH -o neox.o%j
 #SBATCH -e neox.e%j
 #SBATCH -A gen243
+#SBATCH -q DEBUG
 
-source neox-env.sh 
+source neox-env.sh --env-path=/lustre/orion/gen243/proj-shared/bbdir/forge/conda-env-forge
 
 MODEL=forge-s
 rocm_version=5.3.0
-
 export HOSTNAMES=`scontrol show hostnames "$SLURM_JOB_NODELIST"`
 
 ./generate_hostfile.sh
@@ -23,26 +23,40 @@ host_dir="${cur_dir}/hostfiles"
 
 export DLTS_HOSTFILE="${host_dir}/hosts_${SLURM_JOBID}"
 
-export NUMEXPR_MAX_THREADS=56
-
-export FI_MR_CACHE_MONITOR=kdreg2     # Required to avoid a deadlock.
-export FI_CXI_DEFAULT_CQ_SIZE=131072  # Ask the network stack to allocate additional space to process message completions.
-export FI_CXI_DEFAULT_TX_SIZE=2048    # Ask the network stack to allocate additional space to hold pending outgoing messages.
-export FI_CXI_RX_MATCH_MODE=hybrid    # Allow the network stack to transition to software mode if necessary.
-
-export NCCL_NET_GDR_LEVEL=3           # Typically improves performance, but remove this setting if you encounter a hang/crash.
-export NCCL_CROSS_NIC=1               # On large systems, this NCCL setting has been found to improve performance
-export NCCL_SOCKET_IFNAME=hsn0        # NCCL/RCCL will use the high speed network to coordinate startup.
-
-NCCL_DEBUG=info
+export HCC_AMDGPU_TARGET=gfx90a
+export PYTORCH_ROCM_ARCH=gfx90a
+export LD_LIBRARY_PATH=/opt/rocm-$rocm_version/hip/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/lustre/orion/gen243/proj-shared/bbdir/forge/aws-ofi-rccl/lib:$LD_LIBRARY_PATH
 
 echo "PATH=$PATH" > .deepspeed_env
 echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> .deepspeed_env
 echo "CPATH=$CPATH" >> .deepspeed_env
 echo "CUDAPATH=${ROCM_PATH}" >> .deepspeed_env
 echo "TORCH_EXTENSIONS_DIR=$(pwd)/deepspeed" >> .deepspeed_env
-echo "NCCL_DEBUG=INFO" >> .deepspeed_env
+echo "NCCL_DEBUG=WARN" >> .deepspeed_env
+echo "NCCL_DEBUG_FILE=nccl-logs" >> .deepspeed_env
 echo "FI_CXI_ATS=0" >> .deepspeed_env
 echo "NCCL_SOCKET_IFNAME=hsn" >> .deepspeed_env
+echo "FI_MR_CACHE_MONITOR=kdreg2" >> .deepspeed_env
+echo "FI_CXI_DEFAULT_CQ_SIZE=131072" >> .deepspeed_env
+echo "FI_CXI_DEFAULT_TX_SIZE=2048" >> .deepspeed_env
+echo "FI_CXI_RX_MATCH_MODE=hybrid" >> .deepspeed_env
+echo "NCCL_NET_GDR_LEVEL=3" >> .deepspeed_env
+echo "NCCL_CROSS_NIC=1" >> .deepspeed_env
+
+# Print all the environment
+echo "\n*****************Environment Variables*****************\n"
+printenv
+
+echo "\n*****************Python Location*****************\n"
+which python
+
+echo "\n*****************Loaded Modules*****************\n"
+module list
+
+echo "\n*****************Loaded Python Packages*****************\n"
+pip freeze
 
 python -u ./deepy.py train.py -d configs ${MODEL}.yml frontier.yml
+
+python ./extract.py --tensorboard-dir="tensorboard" --output-dir="csvs"
