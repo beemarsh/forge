@@ -17,7 +17,5 @@ if [ -n "$env_path" ]; then
   source activate "$env_path"
 else
   echo "Error: The --env-path=<path> argument is required." >&2
-  return 1
+  exit 1
 fi
-
-#source activate /lustre/orion/gen243/proj-shared/bbdir/forge/conda-env-forge
