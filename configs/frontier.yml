@@ -1,8 +1,10 @@
 {
+   "data-path": "/lustre/orion/gen243/proj-shared/forge_dataset/tokens/all_text_document",
+   "vocab-file": "/lustre/orion/gen243/proj-shared/forge_dataset/tokens/all_vocab.json",
+
    "train-iters": 20,
    "lr-decay-iters": 20,
 
-   "checkpoint-factor": 100,
    "eval-interval": 10, # After every n iterations, perform a evaluation step.
    "eval-iters": 10,    # Num of batches the evaluation will be performed on.
 

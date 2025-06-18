@@ -1,7 +1,5 @@
 # GPT-2 pretraining setup
 {
-   "data-path": "data/tokens/all_text_document",
-   "vocab-file": "data/tokens/all_vocab.json",
    # parallelism settings ( you will want to change these based on your cluster setup, ideally scheduling pipeline stages
    "tokenizer_type": "HFTokenizer",
    # across the node boundaries )
@@ -85,5 +83,5 @@
    "distributed-backend": "nccl",
    "lr-decay-style": "cosine",
    "warmup": 0.01,
-
+   "checkpoint-factor": 100
 }
