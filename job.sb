@@ -1,62 +1,53 @@
 #!/bin/bash -l
-#SBATCH -J FORGE
+#SBATCH -J forge
+#SBATCH -A gen243
 #SBATCH -t 0:30:00
 #SBATCH -N 8
-#SBATCH -C nvme
+#SBATCH -q debug
 #SBATCH --exclusive
-#SBATCH --ntasks-per-node=8
+##SBATCH --ntasks-per-node=8
 #SBATCH -o neox.o%j
 #SBATCH -e neox.e%j
-#SBATCH -A gen243
-#SBATCH -q DEBUG
 
-source neox-env.sh --env-path=/lustre/orion/gen243/proj-shared/bbdir/forge/conda-env-forge
+MODEL=forge-l
+mkdir -p logs/$MODEL
+rm -rf logs/$MODEL/checkpoints
 
-MODEL=forge-s
-rocm_version=5.3.0
-export HOSTNAMES=`scontrol show hostnames "$SLURM_JOB_NODELIST"`
 
-./generate_hostfile.sh
+#. env-rocm571.sh
+module use ../modules
+module load torch24
 
-cur_dir=$(pwd)
-host_dir="${cur_dir}/hostfiles"
-
-export DLTS_HOSTFILE="${host_dir}/hosts_${SLURM_JOBID}"
-
-export HCC_AMDGPU_TARGET=gfx90a
-export PYTORCH_ROCM_ARCH=gfx90a
-export LD_LIBRARY_PATH=/opt/rocm-$rocm_version/hip/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/lustre/orion/gen243/proj-shared/bbdir/forge/aws-ofi-rccl/lib:$LD_LIBRARY_PATH
+export MASTER_HOSTNAME=$(hostname)
+export MASTER_ADDR=$(hostname -i)
+export LD_LIBRARY_PATH=/lustre/orion/gen243/world-shared/bbhusal/LAST_TEST/builds/aws-ofi-rccl/lib/:$LD_LIBRARY_PATH
+# export FI_MR_CACHE_MONITOR=kdreg2
 
 echo "PATH=$PATH" > .deepspeed_env
 echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> .deepspeed_env
 echo "CPATH=$CPATH" >> .deepspeed_env
 echo "CUDAPATH=${ROCM_PATH}" >> .deepspeed_env
 echo "TORCH_EXTENSIONS_DIR=$(pwd)/deepspeed" >> .deepspeed_env
-echo "NCCL_DEBUG=WARN" >> .deepspeed_env
-echo "NCCL_DEBUG_FILE=nccl-logs" >> .deepspeed_env
-echo "FI_CXI_ATS=0" >> .deepspeed_env
-echo "NCCL_SOCKET_IFNAME=hsn" >> .deepspeed_env
-echo "FI_MR_CACHE_MONITOR=kdreg2" >> .deepspeed_env
-echo "FI_CXI_DEFAULT_CQ_SIZE=131072" >> .deepspeed_env
-echo "FI_CXI_DEFAULT_TX_SIZE=2048" >> .deepspeed_env
-echo "FI_CXI_RX_MATCH_MODE=hybrid" >> .deepspeed_env
-echo "NCCL_NET_GDR_LEVEL=3" >> .deepspeed_env
-echo "NCCL_CROSS_NIC=1" >> .deepspeed_env
+#echo "NCCL_DEBUG=INFO" >> .deepspeed_env
+echo "NCCL_SOCKET_IFNAME=hsn0" >> .deepspeed_env
+echo "MASTER_HOSTNAME=$(hostname)" >> .deepspeed_env
+echo "MASTER_ADDR=$(hostname -i)" >> .deepspeed_env
+echo "MASTER_PORT=3442" >> .deepspeed_env
+# echo "FI_MR_CACHE_MONITOR=kdreg2" >> .deepspeed_env
 
-# Print all the environment
-echo "\n*****************Environment Variables*****************\n"
-printenv
+scontrol show hostnames $SLURM_NODELIST > logs/${MODEL}/hostfile
+input="logs/${MODEL}/hostfile"
+readarray -t arr <"$input"
 
-echo "\n*****************Python Location*****************\n"
-which python
+rm logs/${MODEL}/hostfile
+for row in "${arr[@]}";do
+  row_array=(${row})
+  hostname=${row_array[0]}
 
-echo "\n*****************Loaded Modules*****************\n"
-module list
-
-echo "\n*****************Loaded Python Packages*****************\n"
-pip freeze
+  cmd="ssh ${hostname} ${ROCM_PATH}/bin/rocm-smi"
+  echo $cmd
+  #$cmd
+  echo "$hostname slots=8" >> logs/${MODEL}/hostfile
+done
 
 python -u ./deepy.py train.py -d configs ${MODEL}.yml frontier.yml
-
-python ./extract.py --tensorboard-dir="tensorboard" --output-dir="csvs"

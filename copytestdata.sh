@@ -34,12 +34,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-mv hostfiles "$FOLDER_NAME"
 mv neox.* "$FOLDER_NAME"
 mv .deepspeed_env "$FOLDER_NAME"
 mv logs "$FOLDER_NAME"
+mv log.flops "$FOLDER_NAME"
 mv tensorboard "$FOLDER_NAME"
 cp ./job.sb "$FOLDER_NAME"
 
 cp -r ./configs/ "$FOLDER_NAME"
 rm -rf ./checkpoints/
+rm ../../forge_dataset/tokens/all_text_document_*

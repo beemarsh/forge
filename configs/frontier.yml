@@ -1,38 +1,41 @@
+# Suggested data paths when using GPT-NeoX locally
 {
-   "data-path": "/lustre/orion/gen243/proj-shared/forge_dataset/tokens/all_text_document",
-   "vocab-file": "/lustre/orion/gen243/proj-shared/forge_dataset/tokens/all_vocab.json",
+  #"data_path": "data/enwik8/enwik8_text_document",
+ 
+  #"data-path": "/lustre/orion/stf218/scratch/junqi/frontier/data/core-aminer-mag-arxiv-scopus/tokens/all_text_document",
+  #"data-path": "/lustre/orion/stf218/scratch/junqi/frontier/data/mat/material_text_document",
+  #"vocab-file": "/lustre/orion/stf218/scratch/junqi/frontier/data/mat/material_vocab.json",
+  
 
-   "train-iters": 20,
-   "lr-decay-iters": 20,
+  #"tokenizer_type": "HFTokenizer",
+  #"data-path": "/lustre/orion/scratch/junqi/stf218/xforge/data/redpajama-books/tokens/rpbook_text_document",
+  #"vocab-file": "/lustre/orion/scratch/junqi/stf218/xforge/data/redpajama-books/rpbook_vocab.json",
 
-   "eval-interval": 10, # After every n iterations, perform a evaluation step.
-   "eval-iters": 10,    # Num of batches the evaluation will be performed on.
 
-   "tensorboard-dir": "tensorboard",
-   "log-dir": "logs",
-   "use_wandb": False,
+  # or for weighted datasets:
+  # "train-data-paths": ["data/enwik8/enwik8_text_document", "data/enwik8/enwik8_text_document"],
+  # "test-data-paths": ["data/enwik8/enwik8_text_document", "data/enwik8/enwik8_text_document"],
+  # "valid-data-paths": ["data/enwik8/enwik8_text_document", "data/enwik8/enwik8_text_document"],
+  # "train-data-weights": [1., 2.],
+  # "test-data-weights": [2., 1.],
+  # "valid-data-weights": [0.5, 0.4],
 
-   "deepspeed_mpi": True,
-   "launcher": "slurm",
+  # If weight_by_num_documents is True, Builds dataset weights from a multinomial distribution over groups of data according to the number of documents in each group.
+  # WARNING: setting this to True will override any user provided weights
+  # "weight_by_num_documents": false,
+  # "weighted_sampler_alpha": 0.3,
 
-   # logging
-   "log-interval": 2,    # After every n step, it will log data to tensorboard
-   "steps_per_print": 5, # After every n step, it will print the logs: (report includes the number of training steps, number of skipped optimizer updates (likely due to overflows in mixed-precision training), current learning rate, and current momentum.)
+  #"vocab_file": "data/gpt2-vocab.json",
+  #"merge_file": "data/gpt2-merges.txt",
 
-   "keep-last-n-checkpoints": 200,
-   "wall_clock_breakdown": true, # Enable timing of the latency of forward/backward/update training phases.
-
-   "flops_profiler": {
-    "enabled": true,
-    "profile_step": 10,
-    "module_depth": -1,
-    "top_modules": 5,
-    "detailed": true,
-    "output_file": "flopslog"
-   },
-
-  # Enable saving and loading checkpoints
   #"save": "checkpoints",
   #"load": "checkpoints",
-  #"checkpoint_validation_with_forward_pass": False,
+  "checkpoint_validation_with_forward_pass": False,
+
+  "tensorboard_dir": "tensorboard",
+  "log_dir": "logs",
+
+  "deepspeed_mpi": True,
+  "launcher": "slurm"
+
 }

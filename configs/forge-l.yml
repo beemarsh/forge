@@ -1,6 +1,12 @@
 # GPT-2 pretraining setup
 {
+
    "tokenizer_type": "HFTokenizer",
+
+   "hostfile": "logs/forge-l/hostfile",
+   "data-path": "/lustre/orion/gen243/world-shared/bbhusal/forge_dataset/tokens/all_text_document",
+   "vocab-file": "/lustre/orion/gen243/world-shared/bbhusal/forge_dataset/tokens/all_vocab.json",
+
    # parallelism settings ( you will want to change these based on your cluster setup, ideally scheduling pipeline stages
    # across the node boundaries )
    #"pipe-parallel-size": 1,
@@ -57,6 +63,7 @@
     "contiguous_gradients": True,
   },
 
+
    # activation checkpointing
    "checkpoint-activations": true,
    "checkpoint-num-layers": 1,
@@ -71,7 +78,7 @@
 
    # precision settings
    "fp16": {
-     "type": "bfloat16",
+     "type": "bf16",
      "enabled": true,
      "loss_scale": 0,
      "loss_scale_window": 1000,
@@ -80,8 +87,18 @@
    },
 
    # misc. training settings
+   "train-iters": 15300,
+   "lr-decay-iters": 15300,
    "distributed-backend": "nccl",
    "lr-decay-style": "cosine",
    "warmup": 0.01,
    "checkpoint-factor": 50,
+   "eval-interval": 100,
+   "eval-iters": 10,
+
+   # logging
+   "log-interval": 10,
+   "steps_per_print": 5,
+   "keep-last-n-checkpoints": 200,
+   "wall_clock_breakdown": true,
 }

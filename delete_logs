@@ -1,0 +1,9 @@
+#!/bin/sh
+rm -rf hostfiles
+rm neox.*
+rm .deepspeed_env
+rm -rf logs
+#rm -rf tensorboard
+rm nccl-logs
+rm log.flops
+rm .deepspeed_env

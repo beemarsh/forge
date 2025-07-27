@@ -1,10 +1,24 @@
 # GPT-2 pretraining setup
 {
+   #"override_lr_scheduler": true,
+   "hostfile": "hostfile",
+   #"use_shared_fs": false,
+   "tensorboard-dir": "logs/xforge/forge-m/tensorboard",
+   "save": "logs/xforge/forge-m/checkpoints2",
+   "load": "logs/xforge/forge-m/checkpoints2",
+
    "tokenizer_type": "HFTokenizer",
+   "data-path": "/lustre/orion/stf218/scratch/junqi/frontier/data/core-aminer-mag-arxiv-scopus/tokens/all_text_document",
+   "vocab-file": "/lustre/orion/stf218/scratch/junqi/frontier/data/core-aminer-mag-arxiv-scopus/tokens/all_vocab.json",
+
+   #"data-path": "/gpfs/alpine/scratch/junqi/stf218/frontier/data/core-aminer-mag-arxiv-scopus/tokens/all_text_document",
+   #"vocab-file": "/gpfs/alpine/scratch/junqi/stf218/frontier/data/core-aminer-mag-arxiv-scopus/tokens/all_vocab.json",
    # parallelism settings ( you will want to change these based on your cluster setup, ideally scheduling pipeline stages
    # across the node boundaries )
-   #"pipe-parallel-size": 1,
+   #"pipe-parallel-size": 0,
    "model-parallel-size": 2,
+   "context_parallel_size": 2,
+   "attention_config": [[["ring"], 40]],
 
    # batch / data settings
    "train_micro_batch_size_per_gpu": 12,
@@ -27,17 +41,18 @@
    "output_layer_parallelism": "column",
 
    # these should provide some speedup but takes a while to build, set to true if desired
-   "scaled-upper-triang-masked-softmax-fusion": true,
-   "bias-gelu-fusion": true,
+   "scaled-upper-triang-masked-softmax-fusion": false,
+   "bias-gelu-fusion": false,
 
    # init methods
    "init_method": "small_init",
    "output_layer_init_method": "wang_init",
 
 
+   "override_lr_scheduler": true,
    # optimizer settings
    "optimizer": {
-     "type": "Lamb",
+     "type": "Adam",
      "params": {
        "lr": 0.006,
        "betas": [0.9, 0.999],
@@ -56,6 +71,7 @@
     "reduce_bucket_size": 500000000,
     "contiguous_gradients": True,
   },
+
 
    # activation checkpointing
    "checkpoint-activations": true,
@@ -79,8 +95,19 @@
      "min_loss_scale": 1
    },
 
+   # misc. training settings
+   "train-iters": 25300,
+   "lr-decay-iters": 25300,
    "distributed-backend": "nccl",
    "lr-decay-style": "cosine",
    "warmup": 0.01,
    "checkpoint-factor": 50,
+   "eval-interval": 100,
+   "eval-iters": 10,
+
+   # logging
+   "log-interval": 50,
+   "steps_per_print": 10,
+   "keep-last-n-checkpoints": 200,
+   "wall_clock_breakdown": true,
 }
