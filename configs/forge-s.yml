@@ -1,5 +1,9 @@
 # GPT-2 pretraining setup
 {
+   "data-path": "/lustre/orion/gen243/world-shared/bbhusal/forge_dataset/tokens/all_text_document",
+   "vocab-file": "/lustre/orion/world-shared/gen243/bbhusal/forge_dataset/tokens/all_vocab.json",
+   "hostfile": "logs/forge-s/hostfile",
+
    # parallelism settings ( you will want to change these based on your cluster setup, ideally scheduling pipeline stages
    "tokenizer_type": "HFTokenizer",
    # across the node boundaries )
@@ -8,7 +12,6 @@
 
     # total batch size should be ~ 2 million
    "train_micro_batch_size_per_gpu": 16,
-   "gas": 1,
 
    #aws-rccl workaround
    "num_workers": 0, 
@@ -24,8 +27,8 @@
    "no-weight-tying": true,
 
    # these should provide some speedup but takes a while to build, set to true if desired
-   "scaled-upper-triang-masked-softmax-fusion": true,
-   "bias-gelu-fusion": true,
+   "scaled-upper-triang-masked-softmax-fusion": false,
+   "bias-gelu-fusion": false,
 
    # optimizer settings
    "optimizer": {
@@ -69,7 +72,7 @@
 
    # precision settings
    "fp16": {
-     #"fp16": true,
+     "fp16": true,
      #"type": "bfloat16",
      "enabled": true,
      "loss_scale": 0,
@@ -80,8 +83,18 @@
 
 
    # misc. training settings
+   "train-iters": 15300,
+   "lr-decay-iters": 15300,
    "distributed-backend": "nccl",
    "lr-decay-style": "cosine",
    "warmup": 0.01,
-   "checkpoint-factor": 100
+   "checkpoint-factor": 100,
+   "eval-interval": 100,
+   "eval-iters": 10,
+
+   # logging
+   "log-interval": 20,
+   "steps_per_print": 10,
+   "keep-last-n-checkpoints": 200,
+   "wall_clock_breakdown": true,
 }
