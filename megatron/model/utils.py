@@ -1,7 +1,7 @@
-# Copyright (c) 2024 EleutherAI
+# # Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -141,7 +141,12 @@ class SequentialWrapper(torch.nn.Module):
         recursive_setattr(self.sequential, "training", True)
 
     def forward(
-        self, forward_input, curriculum_seqlen=None, labels=None, neox_args=None
+        self,
+        forward_input,
+        curriculum_seqlen=None,
+        labels=None,
+        neox_args=None,
+        return_moe_losses=False,
     ):
 
         if self.batch_fn:
@@ -212,7 +217,10 @@ class SequentialWrapper(torch.nn.Module):
                     )
                 else:
                     x = exec_range_func(start_idx, end_idx)(*x)
-        return x, moe_losses
+        if return_moe_losses:
+            return x, moe_losses
+        else:
+            return x
 
     def clear_cache(self):
         """
@@ -373,14 +381,14 @@ def reduce_weight_grads_from_model_parallel_region(input_):
 
     # Bf16 convert
     dt = input_.dtype
-    if dt == torch.bfloat16 and mpu.initialize.get_fp32_allreduce():
+    if dt == torch.bfloat16 and mpu.get_fp32_allreduce():
         input_ = input_.float()
 
     # All-reduce.
     dist.all_reduce(input_, group=mpu.get_model_parallel_group())
 
     # Bf16 convert
-    if dt == torch.bfloat16 and mpu.initialize.get_fp32_allreduce():
+    if dt == torch.bfloat16 and mpu.get_fp32_allreduce():
         input_ = input_.bfloat16()
 
     return input_
@@ -410,12 +418,12 @@ def get_parallel_linear(neox_args):
             TEColumnParallelLinear as ColumnParallelLinear,
         )
     else:
-        from megatron.mpu import ColumnParallelLinear, ColumnParallelLinear_LR
+        from megatron.mpu import ColumnParallelLinear
     if neox_args.te_rowparallel:
         from megatron.model.transformer_engine import (
             TERowParallelLinear as RowParallelLinear,
         )
     else:
-        from megatron.mpu import RowParallelLinear, RowParallelLinear_LR
+        from megatron.mpu import RowParallelLinear
 
-    return ColumnParallelLinear, RowParallelLinear, ColumnParallelLinear_LR, RowParallelLinear_LR
+    return ColumnParallelLinear, RowParallelLinear

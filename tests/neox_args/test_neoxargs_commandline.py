@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ from ..common import get_root_directory, get_config_directory, get_configs_with_
 
 
 @pytest.mark.cpu
-def test_neoxargs_consume_deepy_args_with_config_dir():
+def test_neoxargs_consume_deepy_args_without_config_dir():
     """
     verify consume_deepy_args processes command line arguments without config dir
     """

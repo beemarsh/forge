@@ -1,7 +1,7 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -222,9 +222,6 @@ def _build_index_mappings(
     tokens_per_epoch = _num_tokens(documents, sizes)
     if not num_epochs:
         num_epochs = _num_epochs(tokens_per_epoch, seq_length, num_samples)
-    if torch.distributed.get_rank() == 0:
-        print(f"number of tokens: {tokens_per_epoch}")    
- 
     # rng state
     np_rng = np.random.RandomState(seed=seed)
 
@@ -373,9 +370,6 @@ def _build_index_mappings(
     # This should be a barrier but nccl barrier assumes
     # device_index=rank which is not the case for model
     # parallel case
-    #torch.distributed.barrier()
-
-
     counts = torch.cuda.LongTensor([1])
     torch.distributed.all_reduce(counts, group=mpu.get_io_parallel_group())
     assert counts[0].item() == torch.distributed.get_world_size(

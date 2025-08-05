@@ -1,7 +1,7 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -210,9 +210,6 @@ def save_ds_checkpoint(iteration, model, neox_args):
 
     # save checkpoint
     model.save_checkpoint(neox_args.save, tag=tag, client_state=sd)
-
-    # dMoE was not saved 
-    
 
     # save config files
     if torch.distributed.get_rank() == 0 and neox_args.config_files is not None:

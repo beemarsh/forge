@@ -1,7 +1,7 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -158,20 +158,16 @@ def _initialize_distributed(neox_args):
     # Setup 3D topology.
     pp = neox_args.pipe_parallel_size if neox_args.pipe_parallel_size >= 1 else 1
     mp = neox_args.model_parallel_size if neox_args.model_parallel_size >= 1 else 1
-    cp = neox_args.context_parallel_size if neox_args.context_parallel_size >= 1 else 1
-    assert (
-        neox_args.world_size % (pp * mp * cp) == 0
-    ), f"world_size={neox_args.world_size}, pp={pp}, mp={mp}, cp={cp}"
     assert (
         neox_args.world_size % (pp * mp) == 0
     ), f"world_size={neox_args.world_size}, pp={pp}, mp={mp}"
-    # The data parallel ranks will be used for context parallel
-    # to piggy back the gradient all reduce
     dp = neox_args.world_size // (pp * mp)
-    assert dp % cp == 0
-    from deepspeed.runtime.pipe.topology import ProcessTopology
 
-    topo = ProcessTopology(axes=["pipe", "data", "model"], dims=[pp, dp, mp])
+    from deepspeed.runtime.pipe.topology import PipeModelDataParallelTopology
+
+    # this does pipe on the most outside, then data, then model.
+    # PipeModelDataParallelTopology is just a wrapper over ProcessTopology that predefines this order.
+    topo = PipeModelDataParallelTopology(num_pp=pp, num_mp=mp, num_dp=dp)
 
     # Offset base seeds for the interior pipeline stages.
     # TODO: adjust last stage too once IO is improved.
@@ -190,8 +186,6 @@ def _initialize_distributed(neox_args):
         else:
             mpu.initialize_model_parallel(
                 neox_args.model_parallel_size,
-                neox_args.pipe_parallel_size,
-                neox_args.context_parallel_size,
                 topology=topo,
                 fp32_allreduce=neox_args.fp32_allreduce,
             )

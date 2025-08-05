@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,14 @@ def get_norm(neox_args):
             norm = MixedFusedLayerNorm
         else:
             norm = LayerNorm
+    elif neox_args.norm == "non_parametric_layernorm":
+        eps = neox_args.layernorm_epsilon
+        if neox_args.layernorm_fusion:
+            raise ValueError(
+                f"neox_args.layernorm_fusion not supported for non_parametric_layernorm"
+            )
+        else:
+            norm = NonParametricLayernorm
     elif neox_args.norm == "scalenorm":
         eps = neox_args.scalenorm_epsilon
         norm = ScaleNorm
@@ -77,18 +85,13 @@ class RMSNorm(torch.nn.Module):
 
     def forward(self, x):
         dtype = x.dtype
-        if self.p < 0.0 or self.p > 1.0:
-            norm_x = x.norm(2, dim=-1, keepdim=True)
-            d_x = self.d
-        else:
+        if self.p >= 0.0 and self.p <= 1.0:
             partial_size = int(self.d * self.p)
-            partial_x, _ = torch.split(x, [partial_size, self.d - partial_size], dim=-1)
+            x, _ = torch.split(x, [partial_size, self.d - partial_size], dim=-1)
 
-            norm_x = partial_x.norm(2, dim=-1, keepdim=True)
-            d_x = partial_size
-
-        rms_x = norm_x * d_x ** (-1.0 / 2)
-        x_normed = x / (rms_x + self.eps)
+        x = x.to(torch.float32)
+        variance = x.pow(2).mean(-1, keepdim=True)
+        x_normed = x * torch.rsqrt(variance + self.eps)
 
         if self.bias:
             return self.scale * x_normed + self.offset
@@ -105,3 +108,10 @@ class ScaleNorm(torch.nn.Module):
     def forward(self, x):
         n = torch.norm(x, dim=-1, keepdim=True).clamp(min=self.eps)
         return x / n * self.g
+
+
+class NonParametricLayernorm(torch.nn.LayerNorm):
+    def __init__(self, dim, eps=1e-5):
+        super().__init__(
+            normalized_shape=dim, eps=eps, elementwise_affine=False, bias=False
+        )

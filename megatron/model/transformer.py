@@ -1,7 +1,7 @@
-# Copyright (c) 2024 EleutherAI
+# # Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,8 +28,6 @@ from importlib.metadata import version
 
 from .norms import get_norm
 from megatron import mpu
-from megatron.ringX3_attn import ringX_attn_func
-from megatron.model import megablocks_utils
 from megatron.model.fused_softmax import FusedScaleMaskSoftmax
 from megatron.model.activations import get_activation
 from megatron.model.utils import exists, get_fusion_type
@@ -49,7 +47,6 @@ from megatron.model.fused_bias_dropout import (
     bias_dropout_add_fused_inference,
 )
 from megatron.model.utils import configure_sparse_attention
-from deepspeed.moe.layer import MoE
 
 try:
     from flash_attn.ops.activations import swiglu
@@ -104,9 +101,6 @@ class ParallelMLP(nn.Module):
         output_layer_init_method,
         parallel_output=False,
         multiple_of=256,
-        MOE=False,
-        MoE_mp_size=1,
-        low_rank=False,
     ):
         super().__init__()
         assert (
@@ -118,14 +112,7 @@ class ParallelMLP(nn.Module):
         self.bias_gelu_fusion = neox_args.bias_gelu_fusion
         self.multiple_of = multiple_of
 
-        ColumnParallelLinear, RowParallelLinear, ColumnParallelLinear_LR, RowParallelLinear_LR = get_parallel_linear(neox_args)
-        if low_rank:
-            linear1 = ColumnParallelLinear_LR
-            linear2 = RowParallelLinear_LR
-        else:
-            linear1 = ColumnParallelLinear
-            linear2 = RowParallelLinear
-           
+        ColumnParallelLinear, RowParallelLinear = get_parallel_linear(neox_args)
 
         if neox_args.intermediate_size:
             ffn_dim = neox_args.intermediate_size
@@ -154,19 +141,17 @@ class ParallelMLP(nn.Module):
         ffn_dim_in = int(
             self.multiple_of * ((ffn_dim_in + multiple_of - 1) // multiple_of)
         )
-        self.linear1 = linear1(
+        self.linear1 = ColumnParallelLinear(
             neox_args=neox_args,
             input_size=neox_args.hidden_size,
             output_size=ffn_dim,
             gather_output=False,
             init_method=init_method,
             skip_bias_add=True,
-            MOE=MOE,
-            MoE_mp_size=MoE_mp_size,
             bias=neox_args.use_bias_in_mlp,
         )
         # Project back to h.
-        self.linear2 = linear2(
+        self.linear2 = RowParallelLinear(
             neox_args=neox_args,
             input_size=ffn_dim_in,
             output_size=neox_args.hidden_size,
@@ -174,8 +159,6 @@ class ParallelMLP(nn.Module):
             init_method=output_layer_init_method,
             parallel_output=parallel_output,
             skip_bias_add=True,
-            MOE=MOE,
-            MoE_mp_size=MoE_mp_size,
             bias=neox_args.use_bias_in_mlp,
         )
 
@@ -229,7 +212,7 @@ class ParallelLinear(nn.Module):
     ):
         super().__init__()
 
-        ColumnParallelLinear, RowParallelLinear, _, _ = get_parallel_linear(neox_args)
+        ColumnParallelLinear, RowParallelLinear = get_parallel_linear(neox_args)
 
         self.is_rm = neox_args.train_impl == "rm"
         parallelism = neox_args.output_layer_parallelism if not self.is_rm else "row"
@@ -282,52 +265,6 @@ class ParallelLinear(nn.Module):
             return self.rm_linear(hidden_states)
 
 
-class _MegablocksAdapter(nn.Module):
-    def __init__(
-        self, neox_args, layer_cls, init_method, output_layer_init_method, ep_group
-    ):
-        super().__init__()
-        megablocks_utils.assert_megablocks_is_available()
-        args = megablocks_utils.as_megablocks_args(neox_args)
-        args.device = torch.cuda.current_device()
-        args.init_method = init_method
-        args.output_layer_init_method = output_layer_init_method
-
-        # NOTE: Shard the MoE layers over the data parallel group. Expert
-        # parallel sharding and data parallel sharding could be decoupled
-        # by extending the optimizer to handle data parallel reductions for
-        # MoE and non-MoE parameters separately.
-        if args.moe_expert_model_parallelism:
-            args.expert_parallel_group = ep_group
-
-        self.moe = layer_cls(args)
-
-    def forward(self, x):
-        return self.moe.forward(x)
-
-
-class MbMoE(_MegablocksAdapter):
-    def __init__(self, neox_args, init_method, output_layer_init_method, ep_group):
-        super().__init__(
-            neox_args,
-            megablocks_utils.moe.MoE,
-            init_method,
-            output_layer_init_method,
-            ep_group,
-        )
-
-
-class dMoE(_MegablocksAdapter):
-    def __init__(self, neox_args, init_method, output_layer_init_method, ep_group):
-        super().__init__(
-            neox_args,
-            megablocks_utils.dmoe.dMoE,
-            init_method,
-            output_layer_init_method,
-            ep_group,
-        )
-
-
 class ParallelSelfAttention(nn.Module):
     """Parallel self-attention layer abstract class.
 
@@ -349,7 +286,7 @@ class ParallelSelfAttention(nn.Module):
     ):
         super().__init__()
 
-        ColumnParallelLinear, RowParallelLinear, _, _ = get_parallel_linear(neox_args)
+        ColumnParallelLinear, RowParallelLinear = get_parallel_linear(neox_args)
 
         self.fp16 = neox_args.precision == "fp16"
         self.bf16 = neox_args.precision == "bfloat16"
@@ -468,7 +405,6 @@ class ParallelSelfAttention(nn.Module):
         self.rope_fusion = neox_args.rope_fusion
         self.attention_type = neox_args.attention_config[layer_number]
         self.use_flash_attention = self.attention_type == "flash"
-        self.use_ring_attention = self.attention_type == "ring"
         self.use_triton = (
             self.use_flash_attention
             and self.pos_emb == "alibi"
@@ -477,7 +413,7 @@ class ParallelSelfAttention(nn.Module):
                 >= packaging.version.Version("2.4.0.post1")
             )
         )
-        self.sparse = self.attention_type not in ("global", "flash", "ring")
+        self.sparse = self.attention_type not in ("global", "flash")
 
         if self.gqa:
             assert not self.sparse
@@ -506,12 +442,6 @@ class ParallelSelfAttention(nn.Module):
                 self.flash_triton_fn = flash_attn_unpadded_unpacked_func_triton
                 self.flash_qkv_fn = flash_attn_func
                 self.flash_varlen_qkv_fn = flash_attn_varlen_func
-            elif self.use_ring_attention:
-                #from ring_flash_attn.zigzag_ring_flash_attn import (
-                #    zigzag_ring_flash_attn_func,
-                #)
-                self.ring_attn_fn = ringX_attn_func
-                #self.ring_attn_fn = zigzag_ring_flash_attn_func
             else:
                 self.scale_mask_softmax = FusedScaleMaskSoftmax(
                     input_in_fp16=self.fp16,
@@ -759,96 +689,6 @@ class ParallelSelfAttention(nn.Module):
 
         return matmul_result
 
-    def ring_attention(self, query_layer, key_layer, value_layer):
-        # [b, np, sq, sk]
-        output_size = (
-            query_layer.size(1),
-            query_layer.size(2),
-            query_layer.size(0),
-            key_layer.size(0),
-        )
-
-        # [sk, b, np, hn] -> [b, sk, np, hn] -> [b * sk, 1, np, hn]
-        key_layer = key_layer.transpose(0, 1).reshape(
-            output_size[0], output_size[3], self.num_kv_heads_per_partition, -1
-        )
-        value_layer = value_layer.transpose(0, 1).reshape(
-            output_size[0], output_size[3], self.num_kv_heads_per_partition, -1
-        )
-
-        # [sq, b, np, hn] -> [b, sq, np, hn]
-        query_layer = query_layer.transpose(0, 1).reshape(
-            output_size[0], output_size[2], output_size[1], -1
-        )
-
-        # only pass in window_size or alibi_slopes kwarg
-        # if we use Sliding Window Attention / AliBi.
-        # Flash attn defaults to (-1,-1), or
-        # does not have this kwarg prior to v2.3.0
-        extra_kwargs = (
-            {"window_size": (self.sliding_window_width, -1)}
-            if self.sliding_window_width is not None
-            else {}
-        )
-        if self.pos_emb == "alibi":
-            extra_kwargs["alibi_slopes"] = self.alibi_embed.slopes.to(
-                query_layer.device
-            ).to(torch.float32)
-
-        if not self.training:
-            batch_size = output_size[0]
-            max_seqlen_q = output_size[2]
-            max_seqlen_k = output_size[3]
-
-            cu_seqlens_q = torch.arange(
-                0,
-                (batch_size + 1) * max_seqlen_q,
-                step=max_seqlen_q,
-                dtype=torch.int32,
-                device=query_layer.device,
-            )
-
-            cu_seqlens_k = torch.arange(
-                0,
-                (batch_size + 1) * max_seqlen_k,
-                step=max_seqlen_k,
-                dtype=torch.int32,
-                device=key_layer.device,
-            )
-
-            q_shape = query_layer.shape
-            k_shape = key_layer.shape
-            v_shape = value_layer.shape
-            is_causal = max_seqlen_q == max_seqlen_k
-            output = self.ring_attn_fn(
-                query_layer,
-                key_layer,
-                value_layer,
-                0.0,
-                softmax_scale=None,
-                causal=is_causal,
-                group=mpu.get_context_parallel_group(),
-                **extra_kwargs,
-            )
-            output = output.reshape(q_shape)
-        else:
-            output = self.ring_attn_fn(
-                query_layer,
-                key_layer,
-                value_layer,
-                self.dropout_p if self.training else 0.0,
-                softmax_scale=None,
-                causal=True,
-                group=mpu.get_context_parallel_group(),
-                **extra_kwargs,
-            )
-
-        matmul_result = output
-        # [b, sq, np, hn] -> [b, np, sq, hn]
-        matmul_result = matmul_result.transpose(1, 2)
-
-        return matmul_result
-
     def sparse_attention(self, query_layer, key_layer, value_layer, attention_mask):
         # TODO: sparse attn dropout?
         # TODO: pad to block size
@@ -924,7 +764,7 @@ class ParallelSelfAttention(nn.Module):
         value_layer = value_layer.view(*new_kv_shape)
 
         # if not using Flash attention, we repeat K/V heads to match Q head counts
-        if not (self.use_flash_attention or self.use_ring_attention):
+        if not self.use_flash_attention:
             key_layer = torch.repeat_interleave(
                 key_layer,
                 repeats=int(
@@ -1035,8 +875,6 @@ class ParallelSelfAttention(nn.Module):
 
         if self.use_flash_attention:
             context_layer = self.flash_attention(query_layer, key_layer, value_layer)
-        elif self.use_ring_attention:
-            context_layer = self.ring_attention(query_layer, key_layer, value_layer)
         elif not self.sparse:
             context_layer = self.attention(
                 query_layer, key_layer, value_layer, layer_past, attention_mask
@@ -1100,8 +938,15 @@ class ParallelTransformerLayer(nn.Module):
         self.bias_dropout_fusion = neox_args.bias_dropout_fusion
         self.gpt_j_residual = neox_args.gpt_j_residual
         self.gpt_j_tied = neox_args.gpt_j_tied
-        self.moe_type = neox_args.moe_type
         self.activation = neox_args.activation
+        self.num_experts = (
+            neox_args.moe_num_experts
+            if layer_number % neox_args.moe_expert_interval == 0
+            else 1
+        )
+
+        if self.num_experts > 1:
+            from megatron.model.moe import ParallelDroplessMoE
 
         if self.gpt_j_residual:
             # GPT-J style layers allow us to defer the reduction of results across TP ranks until the end of the two sublayers.
@@ -1145,7 +990,8 @@ class ParallelTransformerLayer(nn.Module):
         # Layernorm on the output of the attention layer.
         # If GPT-J residuals are used, this is surpurfulous but leaving it in
         # leads to cleaner code
-        self.post_attention_layernorm = norm(neox_args.hidden_size, eps=eps)
+        if not self.neox_args.te_layernorm_mlp:
+            self.post_attention_layernorm = norm(neox_args.hidden_size, eps=eps)
 
         # MLP
         def get_mlp(**kw):
@@ -1158,6 +1004,7 @@ class ParallelTransformerLayer(nn.Module):
                 **kw,
             )
 
+        # TE MLP+LN
         def get_te_lnmlp(**kw):
             from megatron.model.transformer_engine import TELayerNormMLP
 
@@ -1170,108 +1017,17 @@ class ParallelTransformerLayer(nn.Module):
                 **kw,
             )
 
-        self.num_experts = (
-            neox_args.moe_num_experts
-            if layer_number % neox_args.expert_interval == 0
-            else 1
-        )
-        args = neox_args
         if self.num_experts <= 1:
             if neox_args.te_layernorm_mlp:
                 self.mlp = get_te_lnmlp()
             else:
                 self.mlp = get_mlp()
         else:
-            from torch import distributed as dist
-
-            if self.num_experts > dist.get_world_size():
-                moe_mp_size = 1
-            else:
-                moe_mp_size = dist.get_world_size() // self.num_experts
-
-            if neox_args.moe_type == "deepspeed":
-                self.mlp = MoE(
-                    args.hidden_size,
-                    get_mlp(
-                        #"regular",
-                        MOE=True,
-                        MoE_mp_size=moe_mp_size,
-                        low_rank=True,
-                    ),
-                    num_experts=self.num_experts,
-                    ep_size=args.moe_expert_parallel_size,
-                    k=args.moe_top_k,
-                    use_residual=args.moe_use_residual,
-                    capacity_factor=args.moe_train_capacity_factor,
-                    eval_capacity_factor=args.moe_eval_capacity_factor,
-                    min_capacity=args.moe_min_capacity,
-                    drop_tokens=args.moe_token_dropping,
-                    use_tutel=args.use_tutel,
-                    enable_expert_tensor_parallelism=args.enable_expert_tensor_parallelism,
-                )
-            elif neox_args.moe_type == "megablocks":
-
-                def integrate_megablocks_with_ds_expert_parallelism():
-                    # We make megablocks work with DS parallelism.
-                    #
-                    # We fool DS into accepting these MoE parameters as its own DS MoE params,
-                    # which makes things work with the underlying expert parallelism,
-                    # including TED parallelism.
-                    #
-                    # Effectively, we want to:
-                    #
-                    # - Make DS's data parallel gradient all-reduction skip these params.
-                    # - But make these params participate in the expert parallel all-reduction!
-                    #
-                    # Further background:
-                    #
-                    # Normally, with the original megablocks demo codebase, it
-                    # only supports 1 copy of any expert throughout
-                    # the network, since it uses EP group = DP group.
-                    #
-                    # First, we trigger DS initialization of the MoE expert parallel groups and internal state.
-                    throwaway = MoE(
-                        args.hidden_size,
-                        get_mlp(
-                            #"regular",
-                            MOE=True,
-                            MoE_mp_size=moe_mp_size,
-                            low_rank=True,
-                        ),
-                        num_experts=self.num_experts,
-                        ep_size=args.moe_expert_parallel_size,
-                        k=args.moe_top_k,
-                        use_residual=args.moe_use_residual,
-                        capacity_factor=args.moe_train_capacity_factor,
-                        eval_capacity_factor=args.moe_eval_capacity_factor,
-                        min_capacity=args.moe_min_capacity,
-                        drop_tokens=args.moe_token_dropping,
-                        use_tutel=args.use_tutel,
-                        enable_expert_tensor_parallelism=args.enable_expert_tensor_parallelism,
-                    )
-                    throwaway.set_deepspeed_parallelism()
-
-                    ep_group = throwaway.deepspeed_moe.ep_group
-                    if args.moe_token_dropping:
-                        self.mlp = MbMoE(
-                            neox_args, init_method, output_layer_init_method, ep_group
-                        )
-                    else:
-                        self.mlp = dMoE(
-                            neox_args, init_method, output_layer_init_method, ep_group
-                        )
-
-                    # Next, we trick DS into seeing these as its own MoE params.
-                    for param in self.mlp.parameters():
-                        if getattr(param, "expert_model_parallel", None) is not None:
-                            # is_moe_param looks for this attr.
-                            param.allreduce = False
-                            param.group_name = throwaway.expert_group_name
-
-                integrate_megablocks_with_ds_expert_parallelism()
-
-            else:
-                raise KeyError(neox_args.moe_type)
+            self.mlp = ParallelDroplessMoE(
+                neox_args=neox_args,
+                init_method=init_method,
+                output_layer_init_method=output_layer_init_method,
+            )
 
         self.layer_past = None  # used to cache k/v pairs in inference
 
@@ -1289,7 +1045,7 @@ class ParallelTransformerLayer(nn.Module):
     def forward(self, x, attention_mask, layer_past=None):
         layer_past = layer_past if layer_past is not None else self.layer_past
         bias_dropout_fn = self._get_bias_dropout()
-        moe_loss = torch.tensor(0.0, device=x.device, dtype=x.dtype)
+
         # x: [b, s, h]
 
         # Enable delayedscaling if TransformerEngine's FP8 is used for MHA layer.
@@ -1402,21 +1158,11 @@ class ParallelTransformerLayer(nn.Module):
                     0.0, device=layernorm_output.device, dtype=layernorm_output.dtype
                 )
 
-                if self.num_experts == 1:
-                    mlp_output, mlp_bias = self.mlp(layernorm_output)
-                else:
-                    if self.moe_type == "deepspeed":
-                        mlp_output, moe_loss, _ = self.mlp(layernorm_output)
-                        mlp_bias = None  # deepspeed.moe.layer.MoE.forward ignores the bias term
-                    elif self.moe_type == "megablocks":
-                        mlp_output, mlp_bias = self.mlp(layernorm_output)
-                    else:
-                        raise KeyError(self.moe_type)
+                # call signatures of both dense and MoE are the same
+                mlp_output, mlp_bias = self.mlp(layernorm_output)
 
                 with torch.enable_grad() if not self.eval else nullcontext():
-                    if mlp_bias == None or (
-                        self.num_experts > 1 and self.moe_type == "deepspeed"
-                    ):
+                    if mlp_bias == None or (self.num_experts > 1):
                         # No dropout either
                         assert mlp_bias is None
                         output = mlp_output + attention_output
@@ -1428,7 +1174,7 @@ class ParallelTransformerLayer(nn.Module):
                             prob=self.hidden_dropout,
                         )
 
-            return output, moe_loss
+            return output
 
 
 class ParallelTransformerLayerPipe(ParallelTransformerLayer):
@@ -1440,10 +1186,7 @@ class ParallelTransformerLayerPipe(ParallelTransformerLayer):
         ), "ParallelTransformerLayerPipe expects 2 arguments - hidden_states and attention_mask"
         hidden_states, attention_mask = args
         # we are returning just [hidden_states, mask]
-        output, moe_loss = super().forward(hidden_states, attention_mask)
-        # auxiliary output
-        self.last_moe_loss = moe_loss
-        return output, attention_mask
+        return super().forward(hidden_states, attention_mask), attention_mask
 
 
 class ParallelLinearPipe(ParallelLinear):

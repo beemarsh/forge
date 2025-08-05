@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI.
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -143,23 +143,6 @@ def get_actual_flops(neox_args, iter_time_s) -> float:
         mamba_flops = ssm_flops + mamba_projectors_flops + mamba_conv_flops
         embedding_flops = 6 * seq_len * batch_size * hidden_size * vocab_size
         flops_per_iteration = mamba_flops * num_layers + embedding_flops
-    else: # LORA - MLP layers only 
-        r = 256 # hardcode lora rank for now 
-        flops_per_iteration = (
-            4
-            * ckpt_activations_factor
-            * batch_size
-            * seq_len
-            * num_layers
-            * (hidden_size**2)
-            * (
-                2.0
-                + 4.0*(r/hidden_size)**2
-                + (seq_len/hidden_size)
-                + (3.0*vocab_size / (8.0 * num_layers * hidden_size))
-            )
-        )
-    '''    
     else:
         flops_per_iteration = (
             24
@@ -174,7 +157,6 @@ def get_actual_flops(neox_args, iter_time_s) -> float:
                 + (vocab_size / (16.0 * num_layers * hidden_size))
             )
         )
-    '''
     return flops_per_iteration / (iter_time_s * world_size)
 
 

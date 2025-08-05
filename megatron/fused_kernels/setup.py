@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,26 +34,25 @@ def _get_cuda_bare_metal_version(cuda_dir):
 
 srcpath = Path(__file__).parent.absolute()
 cc_flag = []
-#_, bare_metal_major, _ = _get_cuda_bare_metal_version(cpp_extension.CUDA_HOME)
-#if int(bare_metal_major) >= 11:
-#    cc_flag.append("-gencode")
-#    cc_flag.append("arch=compute_80,code=sm_80")
+_, bare_metal_major, _ = _get_cuda_bare_metal_version(cpp_extension.CUDA_HOME)
+if int(bare_metal_major) >= 11:
+    cc_flag.append("-gencode")
+    cc_flag.append("arch=compute_80,code=sm_80")
 
 nvcc_flags = [
     "-O3",
-    #"-gencode",
-    #"arch=compute_70,code=sm_70",
-    #"--use_fast_math",
+    "-gencode",
+    "arch=compute_70,code=sm_70",
+    "--use_fast_math",
     "-U__CUDA_NO_HALF_OPERATORS__",
     "-U__CUDA_NO_HALF_CONVERSIONS__",
-    "-D__HIP_PLATFORM_AMD__=1",
-    #"--expt-relaxed-constexpr",
-    #"--expt-extended-lambda",
+    "--expt-relaxed-constexpr",
+    "--expt-extended-lambda",
 ]
 cuda_ext_args = {"cxx": ["-O3"], "nvcc": nvcc_flags + cc_flag}
 layernorm_cuda_args = {
     "cxx": ["-O3"],
-    "nvcc": nvcc_flags + cc_flag, # + ["-maxrregcount=50"],
+    "nvcc": nvcc_flags + cc_flag + ["-maxrregcount=50"],
 }
 setup(
     name="fused_kernels",
@@ -65,7 +64,7 @@ setup(
         CUDAExtension(
             name="scaled_upper_triang_masked_softmax_cuda",
             sources=[
-                #str(srcpath / "scaled_upper_triang_masked_softmax.cpp"),
+                str(srcpath / "scaled_upper_triang_masked_softmax.cpp"),
                 str(srcpath / "scaled_upper_triang_masked_softmax_cuda.cu"),
             ],
             extra_compile_args=cuda_ext_args,
@@ -73,7 +72,7 @@ setup(
         CUDAExtension(
             name="scaled_masked_softmax_cuda",
             sources=[
-                #str(srcpath / "scaled_masked_softmax.cpp"),
+                str(srcpath / "scaled_masked_softmax.cpp"),
                 str(srcpath / "scaled_masked_softmax_cuda.cu"),
             ],
             extra_compile_args=cuda_ext_args,
@@ -81,7 +80,7 @@ setup(
         CUDAExtension(
             name="fused_rotary_positional_embedding",
             sources=[
-                #str(srcpath / "fused_rotary_positional_embedding.cpp"),
+                str(srcpath / "fused_rotary_positional_embedding.cpp"),
                 str(srcpath / "fused_rotary_positional_embedding_cuda.cu"),
             ],
             extra_compile_args=cuda_ext_args,

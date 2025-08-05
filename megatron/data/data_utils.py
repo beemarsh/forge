@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ def make_data_loader(dataset, neox_args):
         return None
     # Data parallel arguments.
     world_size = mpu.get_data_parallel_world_size()
-    rank = mpu.get_data_parallel_rank()//mpu.get_context_parallel_world_size()
+    rank = mpu.get_data_parallel_rank()
     global_batch_size = neox_args.batch_size * world_size
     num_workers = neox_args.num_workers
 
@@ -532,12 +532,57 @@ def build_train_valid_test_data_loaders(neox_args):
     else:
         pipe_load = True
 
-    # Data loader only on rank 0 of each model and context parallel group.
+    # Data loader only on rank 0 of each model parallel group.
     if (
-        mpu.get_model_parallel_rank() == 0
-        and pipe_load
-        and mpu.get_context_parallel_rank() == 0
+        pipe_load
+        and (neox_args.dataset_impl == "online")
+        and (mpu.get_model_parallel_rank() == 0)
     ):
+        # Can skip most of the work...
+        train_iters = neox_args.train_iters
+        eval_iters = (train_iters // neox_args.eval_interval + 1) * neox_args.eval_iters
+        test_iters = neox_args.eval_iters
+        # Build datasets...
+        print(
+            f"train_iters: {train_iters}, eval_iters: {eval_iters}, test_iters: {test_iters}"
+        )
+        train_datasets = OnlineDataset(
+            leave_one_out=neox_args.reinforce_leave_one_out,
+            data_split="train",
+            num_samples=train_iters * neox_args.train_batch_size,
+            seq_length=neox_args.seq_length,
+            dataserver_ips=neox_args.online_dataserver_ips,
+            dataserver_ports=neox_args.online_dataserver_ports,
+        )
+        valid_datasets = OnlineDataset(
+            leave_one_out=neox_args.reinforce_leave_one_out,
+            data_split="valid",
+            num_samples=eval_iters * neox_args.train_batch_size,
+            seq_length=neox_args.seq_length,
+            dataserver_ips=neox_args.online_dataserver_ips,
+            dataserver_ports=neox_args.online_dataserver_ports,
+        )
+        test_datasets = OnlineDataset(
+            leave_one_out=neox_args.reinforce_leave_one_out,
+            data_split="test",
+            num_samples=test_iters * neox_args.train_batch_size,
+            seq_length=neox_args.seq_length,
+            dataserver_ips=neox_args.online_dataserver_ips,
+            dataserver_ports=neox_args.online_dataserver_ports,
+        )
+        # print length of datasets
+        # Build dataloders.
+        train_dataloader = make_data_loader(train_datasets, neox_args=neox_args)
+        valid_dataloader = make_data_loader(valid_datasets, neox_args=neox_args)
+        test_dataloader = make_data_loader(test_datasets, neox_args=neox_args)
+
+        # Flags to know if we need to do training/validation/testing.
+        do_train = train_dataloader is not None and neox_args.train_iters > 0
+        do_valid = valid_dataloader is not None and neox_args.eval_iters > 0
+        do_test = test_dataloader is not None and neox_args.eval_iters > 0
+        # Need to broadcast num_tokens and num_type_tokens.
+        flags = torch.cuda.LongTensor([int(do_train), int(do_valid), int(do_test)])
+    elif mpu.get_model_parallel_rank() == 0 and pipe_load:
         # Number of train/valid/test samples.
         if neox_args.train_iters is not None:
             train_iters = neox_args.train_iters
@@ -676,18 +721,11 @@ def build_train_valid_test_data_loaders(neox_args):
         # broadcast globally instead of just the model parallel group.
         torch.distributed.broadcast(flags, src=0)
     else:
-        # The same data should be used for the model parallel and context parallel groups
         torch.distributed.broadcast(
             flags,
             mpu.get_model_parallel_src_rank(),
             group=mpu.get_model_parallel_group(),
         )
-        torch.distributed.broadcast(
-            flags,
-            mpu.get_context_parallel_src_rank(),
-            group=mpu.get_context_parallel_group(),
-        )
- 
     neox_args.do_train = flags[0].item()
     neox_args.do_valid = flags[1].item()
     neox_args.do_test = flags[2].item()

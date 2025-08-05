@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -122,8 +122,6 @@ class NeoXArgsDeepspeedConfig(NeoXArgsTemplate):
     # ---ZeRO Optimization Options---
 
     zero_optimization: dict = None
-
-
     """
     Configuration for using ZeRO optimization.
 
@@ -271,8 +269,7 @@ class NeoXArgsDeepspeedConfig(NeoXArgsTemplate):
     Dictionary as described in Deepspeed documentation: https://www.deepspeed.ai/docs/config-json/#data-type-options
     """
 
-    # ---EXTRA ARGUMENTS
-    zero_allow_untested_optimizer: bool = False
+    # ---EXTRA ARGUMENTS---
 
     deepspeed_extra_args: dict = None
     """
@@ -339,11 +336,6 @@ class NeoXArgsDeepspeedRunner(NeoXArgsTemplate):
     force_multi: bool = False
     """
     Force multi-node training even if only one node is specified.
-    """
-
-    detect_nvlink_pairs: bool = False
-    """
-    If true, autodetects nvlink pairs and remaps cuda visible devices to place them next to each other. This is an Eleuther addition to deepspeed, and should speed up model parallel training on setups with nvlink pairs when mp=2.
     """
 
     autotuning_run: str = None

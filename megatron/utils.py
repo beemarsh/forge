@@ -1,7 +1,7 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,29 +81,22 @@ def get_attn_mask(seq_length, device, sliding_window_width):
 
 
 def get_ltor_masks_and_position_ids(
-    data, eod_token, eod_mask_loss=False, sliding_window_width=None, requires_mask=True
+    data,
+    eod_token,
+    eod_mask_loss=False,
+    sliding_window_width=None,
 ):
     """Build masks and position id for left to right model."""
 
     # Extract batch size and sequence length.
     batch_size, seq_length = data.size()
 
-    if requires_mask:
-        # Attention mask (lower triangular).
-        attention_mask = get_attn_mask(
-            seq_length=seq_length,
-            device=data.device,
-            sliding_window_width=sliding_window_width,
-        )
-    else:
-        # Need this to actually do long context, 128k**2 is v big.
-        # Give it a dummy value
-        # Surely there is a better way to do this...
-        attention_mask = get_attn_mask(
-            seq_length=64,
-            device=data.device,
-            sliding_window_width=sliding_window_width,
-        )
+    # Attention mask (lower triangular).
+    attention_mask = get_attn_mask(
+        seq_length=seq_length,
+        device=data.device,
+        sliding_window_width=sliding_window_width,
+    )
 
     # Loss mask.
     loss_mask = torch.ones(data.size(), dtype=torch.float, device=data.device)

@@ -1,4 +1,4 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,6 @@ ATTENTION_TYPE_CHOICES = [
     "flash",
     "rwkv",
     "mamba",
-    "ring",
 ]
 
 
@@ -68,11 +67,6 @@ class NeoXArgsParallelism(NeoXArgsTemplate):
     Size of the model parallelism.
     """
 
-    context_parallel_size: int = 1
-    """
-    Size of the context parallelism.
-    """
-
     pipe_partition_method: str = "type:transformer|mlp"
     """
     method used to distribute model layers across pipeline stages. Choose from "parameters", which balances the number
@@ -95,17 +89,7 @@ class NeoXArgsParallelism(NeoXArgsTemplate):
     """
     flag to determine whether Megatron-style Sequence Parallelism (https://arxiv.org/abs/2205.05198)
     (Layernorm inputs and activations are sharded across model parallel group) will be used. Has no effect when model_parallel_size is 1.
-    """
-
-    is_context_parallel: bool = False
-    """
-    flag to determine whether context parallelism is on - shouldn't be set by user, is automatically determined
-    according to context parallel size.
-    """
-
-    expert_interval: int = 2
-    """
-    Have one MoE layer every expert_interval layers
+    **Set by user, in contrast to neox_args.is_pipe_parallel.**
     """
 
 
@@ -179,10 +163,15 @@ class NeoXArgsModel(NeoXArgsTemplate):
     """
 
     norm: Literal[
-        "layernorm", "rmsnorm", "scalenorm", "te_rmsnorm", "te_layernorm"
+        "layernorm",
+        "rmsnorm",
+        "non_parametric_layernorm",
+        "scalenorm",
+        "te_rmsnorm",
+        "te_layernorm",
     ] = "layernorm"
     """
-    Normalization layer to use. Choose from "layernorm", "rmsnorm", "scalenorm", "te_rmsnorm", "te_layernorm".
+    Normalization layer to use. Choose from "layernorm", "rmsnorm", "non_parametric_layernorm", "scalenorm", "te_rmsnorm", "te_layernorm".
     """
 
     layernorm_fusion: bool = False
@@ -250,7 +239,7 @@ class NeoXArgsModel(NeoXArgsTemplate):
     The first item in the list specifies the attention type(s), and should be a list of strings. The second item
     specifies the number of times to repeat those attention types in the full list.
 
-    attention type choices:  [global, local, sparse_fixed, sparse_variable, bslongformer, bigbird, "gmlp", "amlp", "flash", "mamba", "rwkv", "ring"]
+    attention type choices:  [global, local, sparse_fixed, sparse_variable, bslongformer, bigbird, "gmlp", "amlp", "flash", "mamba", "rwkv"]
 
     So a 12 layer network with only global attention could be specified like:
         [[[`global`], 12]]
@@ -260,12 +249,6 @@ class NeoXArgsModel(NeoXArgsTemplate):
 
     If none is specified, this defaults to
         [[[`global`], n_layers]]
-    """
-
-    requires_attention_mask: bool = True
-    """
-    If true, the model requires an attention mask to be passed in.
-    Automatically configured based on attention type.
     """
 
     sparsity_config: dict = None
@@ -618,7 +601,6 @@ class NeoXArgsOptimizer(NeoXArgsTemplate):
     """
 
     optimizer_type: Literal[
-        "lamb",
         "adam",
         "onebitadam",
         "cpu_adam",
@@ -1618,69 +1600,32 @@ class NeoXArgsTextgen(NeoXArgsTemplate):
     NOTE: Requires internet connection
     """
 
-    moe_top_k: int = 1
-    """
-    Activate top K experts in MoE
-    """
 
-    use_tutel: bool = False
+@dataclass
+class NeoXArgsMoE(NeoXArgsTemplate):
     """
-    Use Tutel optimizations in MoE
+    Mixture of Expert (MoE) Arguments
     """
 
     moe_num_experts: int = 1
     """
-    Number of MoE experts
+    The number of experts in MoE layers. MoE layers not used if set to 1
     """
 
-    moe_loss_coeff: float = 0.1
+    moe_expert_interval: int = 1
     """
-    Coefficient for MoE loss
-    """
-
-    moe_train_capacity_factor: float = 1.0
-    """
-    The capacity of the expert at train time
+    Have one MoE layer every expert_interval layers
     """
 
-    moe_eval_capacity_factor: float = 1.0
+    moe_top_k: int = 1
     """
-    The capacity of the expert at eval time
-    """
-
-    moe_min_capacity: int = 4
-    """
-    The minimum capacity per expert regardless of the capacity_factor
+    The number of experts each token is routed to in MoE layers.
     """
 
-    moe_token_dropping: bool = False
+    moe_router_type: Literal["sinkhorn", "topk"] = "sinkhorn"
     """
-    Whether to drop tokens when exceeding capacity
-    """
-
-    create_moe_param_group: bool = True
-    """
-    Whether to create a separate parameter group for MoE parameters
-    """
-
-    moe_use_residual: bool = True
-    """
-    Whether to use residual in MoE
-    """
-
-    moe_expert_parallel_size: int = 1
-    """
-    Number of parallel experts in MoE
-    """
-
-    moe_type: str = "megablocks"
-    """
-    Either `deepspeed` or `megablocks`
-    """
-
-    moe_glu: bool = False
-    """
-    Use gated linear units in MoE
+    What token routing algorithm to use. Currently only sinkhorn is supported for training.
+    TopK is only used for inference/eval.
     """
 
     moe_lbl_in_fp32: bool = False
@@ -1692,9 +1637,4 @@ class NeoXArgsTextgen(NeoXArgsTemplate):
     """
     Coefficient for MoE routing jitter. Jitter is
     not used if set to None
-    """
-
-    enable_expert_tensor_parallelism: bool = False
-    """
-    Enable expert tensor parallelism
     """

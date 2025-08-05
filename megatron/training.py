@@ -1,7 +1,7 @@
-# Copyright (c) 2024, EleutherAI
+# Copyright (c) 2025, EleutherAI
 # This file is based on code by the authors denoted below and has been modified from its original version.
 #
-# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from functools import partial
 from collections import defaultdict
 
 import math
-import sys, time
+import sys
 from contextlib import nullcontext
 
 import torch
@@ -68,7 +68,7 @@ from megatron.mpu import vocab_parallel_cross_entropy
 
 from pickle import dump
 import os
-from deepspeed.profiling.flops_profiler import FlopsProfiler
+
 
 def mup_weights_reinit(neox_args, model):
     def has_method(o, name):
@@ -240,7 +240,6 @@ def pretrain(neox_args):
 
     # Initialize and get arguments, timers, and Tensorboard writer.
     initialize_megatron(neox_args=neox_args)
-    torch.distributed.barrier()
 
     # Create data loaders
     timers("train/valid/test data loaders").start()
@@ -380,19 +379,11 @@ def _get_batch(neox_args, tokenizer, keys, data, datatype, label_mask_zero=False
         eod_token=neox_args.tokenizer.eod,
         eod_mask_loss=neox_args.eod_mask_loss,
         sliding_window_width=neox_args.sliding_window_width,
-        requires_mask=neox_args.requires_attention_mask,
     )
+
     # combine loss masks from get_ltor_masks_and_position_ids with loss masks from data
     loss_mask = label_mask.to(loss_mask.dtype) * loss_mask
-    return (
-        mpu.zigzag_data(tokens),
-        mpu.zigzag_data(labels),
-        mpu.zigzag_data(loss_mask),
-        mpu.zigzag_data(attention_mask, -2)
-        if neox_args.requires_attention_mask
-        else None,
-        mpu.zigzag_data(position_ids),
-    )
+    return tokens, labels, loss_mask, attention_mask, position_ids
 
 
 def get_batch(neox_args, data_iterator):
@@ -535,73 +526,8 @@ def get_batch_sequential(forward_input, neox_args):
         data=forward_input[0],
         eod_token=neox_args.tokenizer.eod,
         eod_mask_loss=neox_args.eod_mask_loss,
-        requires_mask=neox_args.requires_attention_mask,
     )
     return (forward_input[0], forward_input[1], attention_mask)
-
-
-def average_losses_across_data_parallel_group(losses):
-    """Reduce a tensor of losses across all GPUs."""
-    averaged_losses = torch.cat([loss.clone().detach().view(1) for loss in losses])
-    torch.distributed.all_reduce(averaged_losses, group=mpu.get_data_parallel_group())
-    averaged_losses = averaged_losses / torch.distributed.get_world_size(
-        group=mpu.get_data_parallel_group()
-    )
-
-    return averaged_losses
-
-
-def mb_moe_loss_func(args, loss_mask, output_tensor=None):
-    from megatron.model import megablocks_utils
-    from megatron.model.megablocks_utils import moe
-
-    # NOTE: For pipeline parallelism this function will be run on the
-    # non-final stages to calculate load balancing loss contribution
-    # for the MoE layers within the stage. For these cases, output_tensor
-    # will be None.
-    loss, loss_dict = (None, {})
-    if False:
-        assert output_tensor is not None
-        loss, loss_dict = loss_func(loss_mask, output_tensor)
-        assert loss.numel() == 1
-
-    # NOTE: If recompute is enabled we will collect duplicate load
-    # balancing loss contributions. Prune these before calculating
-    # the load balancing loss.
-    if args.checkpoint_activations:
-        # Ignore load balancing loss contributions compute during
-        # the forward pass if recompute is turned on.
-        load_balancing_loss_data = moe.get_load_balancing_loss()
-        if args.num_layers * 2 == len(load_balancing_loss_data):
-            load_balancing_loss_data = load_balancing_loss_data[args.num_layers :]
-            moe.clear_load_balancing_loss()
-            for x in load_balancing_loss_data:
-                moe.save_load_balancing_loss(x)
-
-    # Compute the load balancing loss for all MoE layers.
-    megablocks_args = args = megablocks_utils.as_megablocks_args(args)
-    lbl = moe.batched_load_balancing_loss(megablocks_args)
-    moe.clear_load_balancing_loss()
-
-    # Average the load balancing loss across data parallel
-    # replicas and save for logging.
-    averaged_lbl = average_losses_across_data_parallel_group([lbl])
-    loss_dict["load balancing loss"] = averaged_lbl[0]
-    return averaged_lbl, loss_dict
-
-
-def get_logp(logits, labels, force_fp32=False):
-    # Rather than reimplementing logp, cross entropy loss is actually logp, just inverted.
-    if force_fp32:
-        logits = logits.float()
-    return -vocab_parallel_cross_entropy(logits, labels)
-
-
-def get_pos_neg_logp(logits, labels, force_fp32=False):
-    # Rather than reimplementing logp, cross entropy loss is actually logp, just inverted.
-    if force_fp32:
-        logits = logits.float()
-    return torch.chunk(-vocab_parallel_cross_entropy(logits, labels), 2, 0)
 
 
 def forward_step(
@@ -660,13 +586,7 @@ def forward_step(
         torch.cuda.nvtx.range_push(f"Forward pass")
     metrics = {}
     if neox_args.train_impl == "normal":
-        # Sequential returns moe_losses, but this is not yet supported by pipe parallel
-        maybe_tuple = model((tokens, position_ids, attention_mask), neox_args=neox_args)
-        if type(maybe_tuple) is tuple:
-            outputs, moe_losses = maybe_tuple
-        else:
-            outputs = maybe_tuple
-            moe_losses = []
+        outputs = model((tokens, position_ids, attention_mask), neox_args=neox_args)
         if (
             is_train
             and neox_args.curriculum_learning
@@ -674,19 +594,9 @@ def forward_step(
         ):
             loss_mask = loss_mask[:, : neox_args.curriculum_seqlen].contiguous()
             labels = labels[:, : neox_args.curriculum_seqlen].contiguous()
-        main_loss = cross_entropy(
+        loss = cross_entropy(
             outputs, (labels, loss_mask), _fp16=neox_args.fp16_lm_cross_entropy
         )
-        if neox_args.moe_num_experts > 1:
-            if neox_args.moe_type == "deepspeed":
-                moe_loss = neox_args.moe_loss_coeff * sum(m.item() for m in moe_losses)
-            elif neox_args.moe_type == "megablocks":
-                moe_loss = mb_moe_loss_func(neox_args, loss_mask, outputs)[0]
-            else:
-                raise ValueError(f"Unsupported moe_type: {neox_args.moe_type}")
-        else:
-            moe_loss = 0.0
-        loss = main_loss + moe_loss
     elif neox_args.train_impl == "rm":
         maybe_tuple = model((tokens, position_ids, attention_mask), neox_args=neox_args)
         if type(maybe_tuple) is tuple:
@@ -1064,16 +974,6 @@ def get_optimizer(model, neox_args, dummy=False):
         f'Configuring Optimizer type: {neox_args.optimizer_type} with params: {neox_args.optimizer["params"]}'
     )
 
-    if neox_args.create_moe_param_group:
-        from deepspeed.moe.utils import (
-            is_moe_param,
-            split_params_into_different_moe_groups_for_optimizer,
-        )
-
-        param_groups = split_params_into_different_moe_groups_for_optimizer(
-            param_groups
-        )
-
     # Add model parallel attribute if it is not set.
     for param_group in param_groups:
         for param in param_group["params"]:
@@ -1177,13 +1077,6 @@ def get_optimizer(model, neox_args, dummy=False):
                     from deepspeed.ops.adam import FusedAdam as Adam
                 adam_optimizer = Adam
         optimizer = adam_optimizer(
-            param_groups,
-            weight_decay=neox_args.weight_decay,
-            **neox_args.optimizer["params"],
-        )
-    elif neox_args.optimizer_type.lower() == "lamb":
-        from deepspeed.ops.lamb import FusedLamb as lamb
-        optimizer = lamb(
             param_groups,
             weight_decay=neox_args.weight_decay,
             **neox_args.optimizer["params"],
@@ -1314,9 +1207,6 @@ def setup_model_and_optimizer(neox_args, use_cache=False, iteration=None):
                 mpu=mpu if not neox_args.is_pipe_parallel else None,
             )
         mark_norms_for_sequence_parallel_grad_sync(model, neox_args)
-        if neox_args.moe_num_experts > 1 and neox_args.moe_type == "megablocks":
-            # We need to additionally set this flag to ensure DS parallelism properly handles this foreign MoE.
-            model.has_moe_layers = True
         model.total_params = get_total_params(model.module)
         print_rank_0(f' > total params: {"{:,}".format(model.total_params)}')
 
@@ -1389,9 +1279,6 @@ def backward_step(neox_args, timers, optimizer, model, loss):
         timers("backward-allreduce").reset()
     else:
         raise ValueError("Must be using deepspeed to run neox")
-
-
-train_step_counter = 0
 
 
 def train_step(
@@ -1571,14 +1458,6 @@ def train(
     # to monitor if we've skipped many iterations in a row and trigger an early exit
     overflow_monitor = OverflowMonitor(optimizer)
 
-    prof = FlopsProfiler(model)
-    prof_step = 10
-    tic = toc = 0 
-    warmup_step = 10
-    bench_step = 10
-    flop = 0
-
-
     if neox_args.profile:
         schedule = torch.profiler.schedule(
             wait=neox_args.profile_step_start,
@@ -1602,24 +1481,6 @@ def train(
             prof.step()
         if neox_args.profile and iteration == neox_args.profile_step_start:
             torch.cuda.cudart().cudaProfilerStart()
-
-
-        if iteration == prof_step:
-            prof.start_profile()
-        if iteration == warmup_step:
-            torch.cuda.synchronize()
-            tic = time.time()
-        if iteration == warmup_step + bench_step:
-            torch.cuda.synchronize()
-            toc = time.time()
-            spi = (toc - tic)/bench_step
-            print(f"Avg second per iteration: {spi}")
-            flops = flop*3/spi/10**12
-            print(f"Training performance: {flops}TFLOPS")   
-
-
-
-
         loss_dict, skipped_iter = train_step(
             neox_args=neox_args,
             timers=timers,
@@ -1629,16 +1490,6 @@ def train(
             lr_scheduler=lr_scheduler,
             reference_model=reference_model,
         )
-
-
-        if iteration == prof_step:
-            prof.stop_profile()
-            flop = prof.get_total_flops()
-            prof.print_model_profile(profile_step=prof_step, output_file="log.flops")
-            prof.end_profile()
-
-
-
         if neox_args.profile and iteration == neox_args.profile_step_stop:
             torch.cuda.cudart().cudaProfilerStop()
             prof.stop()
