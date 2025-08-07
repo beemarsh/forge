@@ -1,0 +1,43 @@
+# ---- Build artifacts ----
+build/
+dist/
+*.o
+*.so
+*.a
+*.out
+*.bin
+*hip.cpp
+*hip.h
+
+# ---- HIP / compiled kernel files ----
+*.hip
+*.hsaco
+*.ptx
+*.cubin
+*.fatbin
+
+# ---- Python cache ----
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- Logs, temporary, cache ----
+*.log
+*.tmp
+.cache/
+.ipynb_checkpoints/
+
+# ---- IDE/editor stuff ----
+.vscode/
+.idea/
+*.swp
+
+# ---- CMake or Make build folders ----
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+# ---- Local environment or virtualenv ----
+.env/
+.venv/
