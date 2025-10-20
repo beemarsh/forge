@@ -152,6 +152,9 @@ class NeoXArgsDeepspeedConfig(NeoXArgsTemplate):
     """
     Print out state information of DeepSpeed object after initialization.
     """
+    
+    # ---Added FOR LAMB Allowing LAMB---
+    zero_allow_untested_optimizer: bool = False
 
     # ---FLOPS Profiler Options---
 
