@@ -80,7 +80,7 @@ ZERO_DEFAULTS = {
 }
 
 # NeoX optimizer defaults
-OPT_DEFAULT = "Adam"
+OPT_DEFAULT = "Lamb"
 OPT_PARAMS_DEFAULTS = {
     "lr": 0.001,
     "betas": [0.9, 0.999],

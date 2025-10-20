@@ -609,6 +609,7 @@ class NeoXArgsOptimizer(NeoXArgsTemplate):
         "madgrad_wd",
         "sgd",
         "lion",
+        "lamb",
     ] = "adam"
     """
     Type of optimizer to use. Choose from ['adam', 'onebitadam', 'cpu_adam', 'cpu_torch_adam', 'sm3', 'madgrad_wd', 'sgd', 'lion']

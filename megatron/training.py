@@ -1081,6 +1081,13 @@ def get_optimizer(model, neox_args, dummy=False):
             weight_decay=neox_args.weight_decay,
             **neox_args.optimizer["params"],
         )
+    elif neox_args.optimizer_type.lower() == "lamb":
+        from deepspeed.ops.lamb import FusedLamb as lamb
+        optimizer = lamb(
+            param_groups,
+            weight_decay=neox_args.weight_decay,
+            **neox_args.optimizer["params"],
+        )
     elif neox_args.optimizer_type.lower() == "sgd":
         try:
             from mup import MuSGD
