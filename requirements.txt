@@ -1,4 +1,3 @@
-deepspeed@git+https://github.com/EleutherAI/DeeperSpeed.git@91d1c55ba037b5ada99ae14884dff87a4dc5b9ea#egg=deepspeed
 ftfy>=6.0.1
 huggingface_hub>=0.11.0
 jinja2==3.1.4
@@ -13,3 +12,14 @@ six
 tiktoken>=0.1.2
 tokenizers>=0.12.1
 transformers==4.38.0
+tensorboard==2.13.0
+autopep8>=1.5.6
+clang-format>=13.0.1
+packaging>=23.0
+pre-commit>=2.17.0
+pytest>=6.2.3
+pytest-cov>=2.11.1
+pytest-forked>=1.3.0
+pytest-html==4.1.1
+pytest-xdist
+toml>=0.10.2
